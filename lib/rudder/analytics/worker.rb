@@ -47,8 +47,8 @@ module Rudder
 
           # res = Request.new(:data_plane_url => @data_plane_url, :ssl => @ssl).post @write_key, @batch
           res = @transport.send @write_key, @batch
-          unless res.status == 200
-            @on_error.call(res.status, res.error) 
+          unless success_status?(res.status)
+            @on_error.call(res.status, res.error)
             @on_error_with_messages.call(res.status, res.error, @batch.messages)
           end
 
@@ -65,6 +65,10 @@ module Rudder
       end
 
       private
+
+      def success_status?(status)
+        status >= 200 && status < 300
+      end
 
       def consume_message_from_queue!
         @batch << @queue.pop

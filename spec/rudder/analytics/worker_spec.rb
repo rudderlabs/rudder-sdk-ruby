@@ -91,7 +91,7 @@ module Rudder
             status, error, data = yielded_status, yielded_error, yielded_data.dup
           end
 
-          message = { context: {:ip=>"127.0.0.1"}, type: "identify", traits: { email: "test@test.com" } }
+          message = { context: { :ip => '127.0.0.1' }, type: 'identify', traits: { email: 'test@test.com' } }
           queue = Queue.new
           queue << message
           config = Configuration.new({ :on_error_with_messages => on_error_with_messages, :write_key => 'write_key', :data_plane_url => 'data_plane_url' })
@@ -109,6 +109,29 @@ module Rudder
           expect(status).to eq(400)
           expect(error).to eq('Some error')
           expect(data).to eq([message])
+        end
+
+        it 'does not execute error handlers for successful non-200 responses' do
+          Rudder::Analytics::Transport
+            .any_instance
+            .stub(:send)
+            .and_return(Rudder::Analytics::Response.new(201, 'Accepted'))
+
+          on_error = proc { raise 'on_error should not be called' }
+          on_error_with_messages = proc { raise 'on_error_with_messages should not be called' }
+          queue = Queue.new
+          queue << {}
+          config = Configuration.new({
+            :on_error => on_error,
+            :on_error_with_messages => on_error_with_messages,
+            :write_key => 'write_key',
+            :data_plane_url => 'data_plane_url'
+          })
+          worker = described_class.new(queue, config)
+
+          expect { worker.run }.to_not raise_error
+
+          Rudder::Analytics::Transport.any_instance.unstub(:send)
         end
 
         # it 'does not call on_error if the request is good' do
