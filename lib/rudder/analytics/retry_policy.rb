@@ -32,7 +32,7 @@ module Rudder
       def self.from_config(config)
         backoff_policy = config.backoff_policy || Rudder::Analytics::BackoffPolicy.new(backoff_options(config))
         new(
-          :max_retries => config.max_retries.nil? ? MAX_RETRIES : config.max_retries,
+          :retries => config.retries.nil? ? RETRIES : config.retries,
           :respect_retry_after => config.respect_retry_after.nil? ? true : config.respect_retry_after,
           :backoff_policy => backoff_policy
         )
@@ -48,7 +48,7 @@ module Rudder
       end
 
       def initialize(options = {})
-        @max_retries = options[:max_retries] || MAX_RETRIES
+        @max_retries = normalize_max_retries(options)
         @respect_retry_after = options.has_key?(:respect_retry_after) ? options[:respect_retry_after] : true
         @backoff_policy = options[:backoff_policy] || Rudder::Analytics::BackoffPolicy.new
       end
@@ -71,6 +71,16 @@ module Rudder
       end
 
       private
+
+      def normalize_max_retries(options)
+        if options.has_key?(:max_retries)
+          [options[:max_retries].to_i, 0].max
+        elsif options.has_key?(:retries)
+          [options[:retries].to_i - 1, 0].max
+        else
+          MAX_RETRIES
+        end
+      end
 
       def next_backoff_interval(retry_after_delay)
         if @backoff_policy.method(:next_interval).arity.zero?

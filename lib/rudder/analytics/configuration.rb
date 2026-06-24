@@ -8,8 +8,8 @@ module Rudder
       include Rudder::Analytics::Utils
 
       attr_reader :write_key, :data_plane_url, :on_error, :on_error_with_messages, :stub, :gzip, :ssl, :batch_size,
-                  :test, :max_queue_size, :backoff_policy, :retries, :max_retries, :retry_base_delay,
-                  :max_retry_delay, :retry_jitter_ratio, :respect_retry_after
+                  :test, :max_queue_size, :backoff_policy, :retries, :retry_base_delay, :max_retry_delay,
+                  :retry_jitter_ratio, :respect_retry_after
 
       def initialize(settings = {})
         symbolized_settings = symbolize_keys(settings)
@@ -36,21 +36,12 @@ module Rudder
 
       def configure_retry(settings)
         @retries = settings[:retries]
-        @max_retries = normalize_max_retries(settings)
         @retry_base_delay = normalize_non_negative_integer(settings[:retry_base_delay])
         @max_retry_delay = normalize_non_negative_integer(
           settings[:max_retry_delay] || settings[:maximum_backoff_duration]
         )
         @retry_jitter_ratio = normalize_jitter_ratio(settings[:retry_jitter_ratio])
         @respect_retry_after = normalize_respect_retry_after(settings)
-      end
-
-      def normalize_max_retries(settings)
-        if settings.has_key?(:max_retries)
-          [settings[:max_retries].to_i, 0].max
-        elsif settings.has_key?(:retries)
-          [settings[:retries].to_i - 1, 0].max
-        end
       end
 
       def normalize_non_negative_integer(value)

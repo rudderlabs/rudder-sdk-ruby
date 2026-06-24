@@ -10,8 +10,8 @@ module Rudder
         HEADERS = { 'Accept' => 'application/json',
                     'Content-Type' => 'application/json',
                     'Content-Encoding' => 'gzip' }
-        MAX_RETRIES = 3
-        RETRIES = MAX_RETRIES + 1
+        RETRIES = 10
+        MAX_RETRIES = RETRIES - 1
       end
 
       module Queue
@@ -29,9 +29,9 @@ module Rudder
 
       module BackoffPolicy
         MIN_TIMEOUT_MS = 100
-        MAX_TIMEOUT_MS = 30000
-        MULTIPLIER = 2
-        RANDOMIZATION_FACTOR = 0.2
+        MAX_TIMEOUT_MS = 10000
+        MULTIPLIER = 1.5
+        RANDOMIZATION_FACTOR = 0.5
       end
     end
   end

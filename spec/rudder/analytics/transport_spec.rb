@@ -265,7 +265,7 @@ module Rudder
                 :backoff_policy => backoff_policy,
                 :data_plane_url => 'http://localhost:8080/v1/batch',
                 :write_key => 'write_key',
-                :max_retries => 3,
+                :retries => 4,
                 :gzip => false
               })
             }
@@ -300,7 +300,7 @@ module Rudder
                 :backoff_policy => FakeBackoffPolicy.new([0]),
                 :data_plane_url => 'http://localhost:8080/v1/batch',
                 :write_key => 'write_key',
-                :max_retries => 1,
+                :retries => 2,
                 :gzip => false
               })
               transport = described_class.new(config)
