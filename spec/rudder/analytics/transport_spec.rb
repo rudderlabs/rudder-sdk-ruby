@@ -284,6 +284,23 @@ module Rudder
               expect(subject.send(write_key, batch).status).to eq(200)
             end
 
+            it 'logs response retry details' do
+              http = subject.instance_variable_get(:@http)
+              responses = [
+                build_response(429, 'Too Many Requests'),
+                build_response(200, '{}')
+              ]
+
+              expect(http).to receive(:request).twice do
+                responses.shift
+              end
+              expect(subject.logger)
+                .to receive(:debug)
+                .with('Retrying request after status 429 in 0.0s (attempt 1 of 4, 2 retries left)')
+
+              subject.send(write_key, batch)
+            end
+
             it 'does not retry terminal client errors' do
               http = subject.instance_variable_get(:@http)
               expect(http).to receive(:request).once do
@@ -333,6 +350,26 @@ module Rudder
               end
 
               expect(subject.send(write_key, batch).status).to eq(200)
+            end
+
+            it 'logs transport error retry details' do
+              http = subject.instance_variable_get(:@http)
+              responses = [Net::OpenTimeout.new('timeout'), build_response(200, '{}')]
+
+              expect(http).to receive(:request).twice do
+                response = responses.shift
+                raise response if response.is_a?(Exception)
+
+                response
+              end
+              expect(subject.logger)
+                .to receive(:debug)
+                .with(
+                  'Retrying request after transport error Net::OpenTimeout in 0.0s ' \
+                  '(attempt 1 of 4, 2 retries left)'
+                )
+
+              subject.send(write_key, batch)
             end
 
             it 'resends the same event payload after a 429' do

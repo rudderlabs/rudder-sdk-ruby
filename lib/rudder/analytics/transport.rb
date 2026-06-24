@@ -88,7 +88,7 @@ module Rudder
       def retry_exception(retries, exception)
         retries += 1
         reset_connection
-        sleep_before_retry(retries, {}, exception.class.name)
+        sleep_before_retry(retries, {}, "transport error #{exception.class.name}")
         retries
       end
 
@@ -109,7 +109,8 @@ module Rudder
       def sleep_before_retry(retry_number, headers, reason)
         delay = @retry_policy.retry_delay_in_seconds(headers)
         remaining = @retry_policy.max_retries - retry_number
-        logger.debug("Retrying request after #{reason}, #{remaining} retries left")
+        logger.debug("Retrying request after #{reason} in #{delay}s " \
+                     "(attempt #{retry_number} of #{@retry_policy.max_attempts}, #{remaining} retries left)")
         sleep(delay) if delay.positive?
       end
 
