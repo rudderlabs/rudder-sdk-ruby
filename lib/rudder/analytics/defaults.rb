@@ -29,9 +29,9 @@ module Rudder
 
       module BackoffPolicy
         MIN_TIMEOUT_MS = 100
-        MAX_TIMEOUT_MS = 10000
-        MULTIPLIER = 1.5
-        RANDOMIZATION_FACTOR = 0.5
+        MAX_TIMEOUT_MS = 30000
+        MULTIPLIER = 2
+        RANDOMIZATION_FACTOR = 0.2
       end
     end
   end

@@ -7,6 +7,17 @@ module Rudder
     describe BackoffPolicy do
       describe '#initialize' do
         context 'no options are given' do
+          it 'uses the shared SDK backoff defaults' do
+            defaults = [
+              described_class::MIN_TIMEOUT_MS,
+              described_class::MAX_TIMEOUT_MS,
+              described_class::MULTIPLIER,
+              described_class::RANDOMIZATION_FACTOR
+            ]
+
+            expect(defaults).to eq([100, 30000, 2, 0.2])
+          end
+
           it 'sets default min_timeout_ms' do
             actual = subject.instance_variable_get(:@min_timeout_ms)
             expect(actual).to eq(described_class::MIN_TIMEOUT_MS)
