@@ -18,6 +18,19 @@ class ImmediateBackoffPolicy
   end
 end
 
+class RecordingBackoffPolicy
+  attr_reader :floors
+
+  def initialize
+    @floors = []
+  end
+
+  def next_interval(floor_ms = 0)
+    @floors << floor_ms
+    0
+  end
+end
+
 RSpec.describe 'retry behavior over a local HTTP boundary' do
   def drain_queue(queue)
     items = []
@@ -26,7 +39,7 @@ RSpec.describe 'retry behavior over a local HTTP boundary' do
     items
   end
 
-  def start_retrying_server(captured_requests)
+  def start_server(captured_requests, response_sequence)
     request_count = 0
     mutex = Mutex.new
     server = WEBrick::HTTPServer.new(
@@ -47,13 +60,14 @@ RSpec.describe 'retry behavior over a local HTTP boundary' do
       }
 
       current_request = mutex.synchronize { request_count += 1 }
-      if current_request == 1
-        response.status = 429
-        response.body = 'Too Many Requests'
-      else
-        response.status = 200
-        response['Content-Type'] = 'application/json'
-        response.body = '{}'
+      response_definition = response_sequence.fetch(
+        [current_request - 1, response_sequence.length - 1].min
+      )
+
+      response.status = response_definition.fetch(:status)
+      response.body = response_definition.fetch(:body, '{}')
+      response_definition.fetch(:headers, {}).each do |name, value|
+        response[name] = value
       end
     end
 
@@ -61,10 +75,11 @@ RSpec.describe 'retry behavior over a local HTTP boundary' do
     [server, server_thread, server.listeners.first.addr[1]]
   end
 
-  it 'retries a 429 and resends the same batch through the public API' do
+  def exercise_public_api(response_sequence, backoff_policy: ImmediateBackoffPolicy.new([0]), retries: 2)
     captured_requests = Queue.new
     captured_errors = Queue.new
-    server, server_thread, port = start_retrying_server(captured_requests)
+    captured_errors_with_messages = Queue.new
+    server, server_thread, port = start_server(captured_requests, response_sequence)
 
     begin
       analytics = Rudder::Analytics.new(
@@ -72,9 +87,12 @@ RSpec.describe 'retry behavior over a local HTTP boundary' do
         :data_plane_url => "http://127.0.0.1:#{port}",
         :ssl => false,
         :gzip => false,
-        :retries => 2,
-        :backoff_policy => ImmediateBackoffPolicy.new([0]),
-        :on_error => proc { |status, error| captured_errors << [status, error] }
+        :retries => retries,
+        :backoff_policy => backoff_policy,
+        :on_error => proc { |status, error| captured_errors << [status, error] },
+        :on_error_with_messages => proc do |status, error, messages|
+          captured_errors_with_messages << [status, error, messages.map(&:dup)]
+        end
       )
 
       analytics.track(
@@ -84,27 +102,110 @@ RSpec.describe 'retry behavior over a local HTTP boundary' do
       )
       analytics.flush
 
-      requests = drain_queue(captured_requests)
-      errors = drain_queue(captured_errors)
-
-      expect(errors).to be_empty
-      expect(requests.length).to eq(2)
-      expect(requests[0][:path]).to eq('/v1/batch')
-      expect(requests[0][:authorization]).to match(/\ABasic /)
-      expect(requests[0][:content_type]).to eq('application/json')
-      expect(requests[0][:content_encoding]).to be_nil
-      expect(requests[0][:body]).to eq(requests[1][:body])
-
-      payload = JSON.parse(requests[0][:body])
-      event = payload['batch'].first
-
-      expect(event['type']).to eq('track')
-      expect(event['userId']).to eq('user-1')
-      expect(event['event']).to eq('Retry Contract Event')
-      expect(event['messageId']).to eq('message-1')
+      {
+        :requests => drain_queue(captured_requests),
+        :errors => drain_queue(captured_errors),
+        :errors_with_messages => drain_queue(captured_errors_with_messages)
+      }
     ensure
       server.shutdown
       server_thread.join(5)
     end
+  end
+
+  def expect_valid_event_request(request)
+    expect(request[:path]).to eq('/v1/batch')
+    expect(request[:authorization]).to match(/\ABasic /)
+    expect(request[:content_type]).to eq('application/json')
+    expect(request[:content_encoding]).to be_nil
+
+    event = JSON.parse(request[:body])['batch'].first
+    expect(event['type']).to eq('track')
+    expect(event['userId']).to eq('user-1')
+    expect(event['event']).to eq('Retry Contract Event')
+    expect(event['messageId']).to eq('message-1')
+  end
+
+  it 'sends an event once when the server returns 200' do
+    result = exercise_public_api([{ :status => 200 }])
+
+    expect(result[:requests].length).to eq(1)
+    expect_valid_event_request(result[:requests].first)
+    expect(result[:errors]).to be_empty
+    expect(result[:errors_with_messages]).to be_empty
+  end
+
+  it 'does not retry a terminal 404 response' do
+    result = exercise_public_api([{ :status => 404, :body => 'Not Found' }])
+
+    expect(result[:requests].length).to eq(1)
+    expect(result[:errors]).to eq([[404, 'Not Found']])
+    expect(result[:errors_with_messages].length).to eq(1)
+
+    status, error, messages = result[:errors_with_messages].first
+    expect(status).to eq(404)
+    expect(error).to eq('Not Found')
+    expect(messages.first[:messageId]).to eq('message-1')
+  end
+
+  it 'retries a 429 and resends the same batch through the public API' do
+    response_sequence = [
+      { :status => 429, :body => 'Too Many Requests' },
+      { :status => 200 }
+    ]
+    result = exercise_public_api(response_sequence)
+
+    requests = result[:requests]
+    expect(result[:errors]).to be_empty
+    expect(result[:errors_with_messages]).to be_empty
+    expect(requests.length).to eq(2)
+    expect(requests[0][:body]).to eq(requests[1][:body])
+    expect_valid_event_request(requests.first)
+  end
+
+  [500, 501, 502, 503].each do |status_code|
+    it "retries a #{status_code} response and succeeds" do
+      response_sequence = [
+        { :status => status_code, :body => 'Server Error' },
+        { :status => 200 }
+      ]
+      result = exercise_public_api(response_sequence)
+
+      requests = result[:requests]
+      expect(requests.length).to eq(2)
+      expect(requests[0][:body]).to eq(requests[1][:body])
+      expect(result[:errors]).to be_empty
+      expect(result[:errors_with_messages]).to be_empty
+    end
+  end
+
+  it 'returns the final error after the retry budget is exhausted' do
+    response_sequence = [
+      { :status => 503, :body => 'Unavailable' },
+      { :status => 503, :body => 'Still Unavailable' }
+    ]
+    result = exercise_public_api(response_sequence)
+
+    requests = result[:requests]
+    expect(requests.length).to eq(2)
+    expect(requests[0][:body]).to eq(requests[1][:body])
+    expect(result[:errors]).to eq([[503, 'Still Unavailable']])
+    expect(result[:errors_with_messages].length).to eq(1)
+    expect(result[:errors_with_messages].first[2].first[:messageId]).to eq('message-1')
+  end
+
+  it 'passes Retry-After delay seconds from the HTTP response to the backoff policy' do
+    backoff_policy = RecordingBackoffPolicy.new
+    result = exercise_public_api(
+      [
+        { :status => 429, :body => 'Too Many Requests', :headers => { 'Retry-After' => '2' } },
+        { :status => 200 }
+      ],
+      :backoff_policy => backoff_policy
+    )
+
+    expect(result[:requests].length).to eq(2)
+    expect(backoff_policy.floors).to eq([2000])
+    expect(result[:errors]).to be_empty
   end
 end
