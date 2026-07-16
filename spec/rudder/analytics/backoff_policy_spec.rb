@@ -7,6 +7,17 @@ module Rudder
     describe BackoffPolicy do
       describe '#initialize' do
         context 'no options are given' do
+          it 'uses the shared SDK backoff defaults' do
+            defaults = [
+              described_class::MIN_TIMEOUT_MS,
+              described_class::MAX_TIMEOUT_MS,
+              described_class::MULTIPLIER,
+              described_class::RANDOMIZATION_FACTOR
+            ]
+
+            expect(defaults).to eq([100, 30000, 2, 0.2])
+          end
+
           it 'sets default min_timeout_ms' do
             actual = subject.instance_variable_get(:@min_timeout_ms)
             expect(actual).to eq(described_class::MIN_TIMEOUT_MS)
@@ -85,8 +96,37 @@ module Rudder
         end
 
         it 'caps maximum duration at max_timeout_secs' do
-          10.times { subject.next_interval }
-          expect(subject.next_interval).to eq(10000)
+          policy = described_class.new(
+            min_timeout_ms: 1000,
+            max_timeout_ms: 10000,
+            multiplier: 2,
+            randomization_factor: 0
+          )
+
+          10.times { policy.next_interval }
+          expect(policy.next_interval).to eq(10000)
+        end
+
+        it 'uses Retry-After as a floor on backoff' do
+          policy = described_class.new(
+            min_timeout_ms: 100,
+            max_timeout_ms: 10000,
+            multiplier: 2,
+            randomization_factor: 0
+          )
+
+          expect(policy.next_interval(2000)).to eq(2000)
+        end
+
+        it 'does not let Retry-After shorten backoff' do
+          policy = described_class.new(
+            min_timeout_ms: 1000,
+            max_timeout_ms: 10000,
+            multiplier: 2,
+            randomization_factor: 0
+          )
+
+          expect(policy.next_interval(100)).to eq(1000)
         end
       end
     end

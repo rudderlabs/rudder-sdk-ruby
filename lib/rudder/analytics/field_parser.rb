@@ -74,14 +74,12 @@ module Rudder
           check_string(group_id, 'group_id')
 
           group_data = {
-            type: 'group',
-            groupId: group_id
+            :type => 'group',
+            :groupId => group_id
           }
 
           # Add traits if present
-          if fields[:traits]
-            group_data[:traits] = fields[:traits]
-          end          
+          group_data[:traits] = fields[:traits] if fields[:traits]
 
           common.merge(group_data)
         end

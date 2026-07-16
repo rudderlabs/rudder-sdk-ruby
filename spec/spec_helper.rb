@@ -3,8 +3,13 @@
 # https://github.com/codecov/codecov-ruby#usage
 require 'simplecov'
 SimpleCov.start
-require 'codecov'
-SimpleCov.formatter = SimpleCov::Formatter::Codecov
+
+# The legacy Codecov Ruby uploader is opt-in so normal test runs do not fail
+# while attempting to upload coverage from every RSpec process.
+unless ENV['CODECOV_TOKEN'].to_s.empty?
+  require 'codecov'
+  SimpleCov.formatter = SimpleCov::Formatter::Codecov
+end
 
 require 'rudder/analytics'
 require 'active_support/time'
