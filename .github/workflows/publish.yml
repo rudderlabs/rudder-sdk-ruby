@@ -1,0 +1,64 @@
+name: Publish gem
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-gem-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to RubyGems
+    if: ${{ !github.event.release.draft && !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Check out the release tag
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@d45b1a4e94b71acab930e56e79c6aa188764e7f9 # v1.316.0
+        with:
+          ruby-version: '2.7'
+
+      - name: Validate the release version
+        id: release
+        run: |
+          version="$(./scripts/publish_gem.sh validate)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build the gem
+        env:
+          GEM_FILE: rudder-sdk-ruby-${{ steps.release.outputs.version }}.gem
+        run: gem build rudder-sdk-ruby.gemspec --output "$GEM_FILE"
+
+      - name: Configure RubyGems trusted publishing
+        uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
+
+      - name: Publish the gem
+        env:
+          GEM_FILE: rudder-sdk-ruby-${{ steps.release.outputs.version }}.gem
+        run: gem push "$GEM_FILE"
+
+      - name: Verify the published version
+        run: ./scripts/publish_gem.sh verify
