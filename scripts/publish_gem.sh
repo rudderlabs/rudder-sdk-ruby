@@ -5,6 +5,8 @@ set -euo pipefail
 readonly GEM_NAME='rudder-sdk-ruby'
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPOSITORY_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+readonly VERIFY_RETRY_COUNT=18
+readonly VERIFY_RETRY_DELAY_SECONDS=5
 
 usage() {
   echo "Usage: RELEASE_TAG=v<major>.<minor>.<patch> $0 <validate|verify>" >&2
@@ -35,11 +37,12 @@ verify_published_version() {
   published_version="$(
     curl \
       --fail \
-      --retry 12 \
+      --retry "$VERIFY_RETRY_COUNT" \
       --retry-all-errors \
-      --retry-delay 5 \
+      --retry-delay "$VERIFY_RETRY_DELAY_SECONDS" \
       --silent \
       --show-error \
+      --header 'Cache-Control: no-cache' \
       "https://rubygems.org/api/v2/rubygems/$GEM_NAME/versions/$gem_version.json" \
       | ruby -rjson -e 'print JSON.parse(STDIN.read).fetch("version")'
   )"
