@@ -62,7 +62,8 @@ main() {
       validate_release
       ;;
     verify)
-      verify_published_version "$(validate_release)"
+      version="$(validate_release)"
+      verify_published_version "$version"
       ;;
     *)
       usage
