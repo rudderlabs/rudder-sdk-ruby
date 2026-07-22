@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.1](https://github.com/rudderlabs/rudder-sdk-ruby/compare/v3.2.0...v3.2.1) (2026-07-22)
+
+
+### Miscellaneous
+
+* sdk-5164 automate rubygems publishing ([#50](https://github.com/rudderlabs/rudder-sdk-ruby/issues/50)) ([83a1e2e](https://github.com/rudderlabs/rudder-sdk-ruby/commit/83a1e2e184b19742453932fb4caccca8e2b8f931))
+
 ## [3.2.0](https://github.com/rudderlabs/rudder-sdk-ruby/compare/v3.1.1...v3.2.0) (2026-07-16)
 
 
