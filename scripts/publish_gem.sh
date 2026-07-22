@@ -34,7 +34,8 @@ validate_release() {
 verify_published_version() {
   local gem_version="$1"
   local published_version
-  published_version="$(
+  local response
+  response="$(
     curl \
       --fail \
       --retry "$VERIFY_RETRY_COUNT" \
@@ -43,8 +44,10 @@ verify_published_version() {
       --silent \
       --show-error \
       --header 'Cache-Control: no-cache' \
-      "https://rubygems.org/api/v2/rubygems/$GEM_NAME/versions/$gem_version.json" \
-      | ruby -rjson -e 'print JSON.parse(STDIN.read).fetch("version")'
+      "https://rubygems.org/api/v2/rubygems/$GEM_NAME/versions/$gem_version.json"
+  )"
+  published_version="$(
+    ruby -rjson -e 'print JSON.parse(STDIN.read).fetch("version")' <<< "$response"
   )"
 
   if [[ "$published_version" != "$gem_version" ]]; then
