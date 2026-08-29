@@ -16,7 +16,7 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = '>= 2.0'
 
   # Used in the executable testing script
-  spec.add_development_dependency 'commander', '~> 4.4'
+  spec.add_development_dependency 'commander', '~> 5.0'
 
   # Used in specs
   spec.add_development_dependency 'rake', '~> 10.3'
