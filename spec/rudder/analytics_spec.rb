@@ -124,6 +124,18 @@ module Rudder
         end
       end
 
+      describe 'delegation' do
+        it 'defines the public instance methods of Rudder::Analytics::Client, not only method_missing' do
+          expect(Rudder::Analytics.public_instance_methods(false)).to include(*Rudder::Analytics::Client.public_instance_methods(false))
+        end
+
+        it 'forwards the arguments to the client' do
+          client = analytics.instance_variable_get(:@client)
+          expect(client).to receive(:track).with(Queued::TRACK)
+          analytics.track Queued::TRACK
+        end
+      end
+
       describe '#method' do
         Rudder::Analytics::Client.public_instance_methods(false).each do |public_method|
           it "returns a Method object with '#{public_method}' as argument" do
