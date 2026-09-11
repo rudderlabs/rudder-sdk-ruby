@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.2.2](https://github.com/rudderlabs/rudder-sdk-ruby/compare/v3.2.1...v3.2.2) (2026-09-11)
+
+
+### Miscellaneous
+
+* remove notion-pr-sync workflow ([#52](https://github.com/rudderlabs/rudder-sdk-ruby/issues/52)) ([d6520d8](https://github.com/rudderlabs/rudder-sdk-ruby/commit/d6520d8dafe8c06c0cc5ac637a73d7e9e461babd))
+* switch branding images to CDN URLs ([#56](https://github.com/rudderlabs/rudder-sdk-ruby/issues/56)) ([c2f5ad6](https://github.com/rudderlabs/rudder-sdk-ruby/commit/c2f5ad69d088a01a43e893d52b65e21bf23fbb71))
+* update readme with new branding images ([#54](https://github.com/rudderlabs/rudder-sdk-ruby/issues/54)) ([10fc469](https://github.com/rudderlabs/rudder-sdk-ruby/commit/10fc469699d042b34f8ae30b3da2eab06a92c5a8))
+
 ## [3.2.1](https://github.com/rudderlabs/rudder-sdk-ruby/compare/v3.2.0...v3.2.1) (2026-07-22)
 
 
