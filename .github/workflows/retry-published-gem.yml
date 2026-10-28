@@ -1,0 +1,126 @@
+name: Retry exact published gem acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact RubyGems version (for example 1.2.3)
+        type: string
+        required: true
+      tag:
+        description: Existing published release tag (for example v1.2.3)
+        type: string
+        required: true
+      commit:
+        description: Exact release tag commit (40-character SHA)
+        type: string
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: retry-published-gem-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify existing release and RubyGems artifact
+    if: ${{ github.repository == 'rudderlabs/rudder-sdk-ruby' && github.ref == 'refs/heads/master' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # fetch the existing release and checkout its tag
+    outputs:
+      version: ${{ steps.exact.outputs.version }}
+      tag: ${{ steps.exact.outputs.tag }}
+      commit: ${{ steps.exact.outputs.commit }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Check retry inputs and published release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_COMMIT: ${{ inputs.commit }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$RELEASE_TAG" == "v$VERSION" ]]
+          [[ "$RELEASE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          [[ "$(jq -r '.tag_name' <<< "$release")" == "$RELEASE_TAG" ]]
+          [[ "$(jq -r '.draft, .prerelease' <<< "$release")" == $'false\nfalse' ]]
+          # A successful push in the original release run binds this SHA to the
+          # release event, independently of where the tag points today.
+          runs="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/workflows/publish.yml/runs?event=release&branch=$RELEASE_TAG&per_page=100" --jq '.workflow_runs[] | select(.event == "release" and .status == "completed") | [.id, .head_sha, .head_branch] | @tsv')"
+          [[ -n "$runs" ]]
+          matched=false
+          while IFS=$'\t' read -r run_id run_sha run_tag; do
+            [[ "$run_sha" == "$RELEASE_COMMIT" && "$run_tag" == "$RELEASE_TAG" ]] || continue
+            jobs="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100" --jq '.jobs[] | select(.name == "Publish to RubyGems") | .steps[] | select(.name == "Publish the gem" and .conclusion == "success") | .name')"
+            if [[ -n "$jobs" ]]; then
+              matched=true
+              break
+            fi
+          done <<< "$runs"
+          [[ "$matched" == true ]]
+
+      - name: Check out the recorded release commit
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        with:
+          ref: ${{ inputs.commit }}
+          persist-credentials: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@d5126b9b3579e429dd52e51e68624dda2e05be25 # v1.267.0
+
+      - name: Verify exact source and public gem
+        id: exact
+        env:
+          VERSION: ${{ inputs.version }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_COMMIT: ${{ inputs.commit }}
+        run: |
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_COMMIT" ]]
+          # A moved tag must not silently change the package or source under test.
+          remote_refs="$(git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$RELEASE_TAG" "refs/tags/$RELEASE_TAG^{}")"
+          tag_commit="$(awk '$2 ~ /\^\{\}$/ { print $1 }' <<< "$remote_refs")"
+          if [[ -z "$tag_commit" ]]; then
+            tag_commit="$(awk '{ print $1 }' <<< "$remote_refs")"
+          fi
+          [[ "$tag_commit" == "$RELEASE_COMMIT" ]]
+          [[ "$(./scripts/publish_gem.sh validate)" == "$VERSION" ]]
+          ./scripts/publish_gem.sh verify
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "commit=$RELEASE_COMMIT" >> "$GITHUB_OUTPUT"
+
+  acceptance:
+    name: Retry full published gem acceptance
+    needs: verify
+    uses: ./.github/workflows/validate-published-gem.yml
+    with:
+      version: ${{ needs.verify.outputs.version }}
+      tag: ${{ needs.verify.outputs.tag }}
+      commit: ${{ needs.verify.outputs.commit }}
+    secrets:
+      RELEASE_PRIVATE_KEY: ${{ secrets.RELEASE_PRIVATE_KEY }}
+
+  notify:
+    name: Notify accepted retry
+    if: ${{ always() && needs.verify.result == 'success' && needs.acceptance.result == 'success' }}
+    needs: [verify, acceptance]
+    uses: ./.github/workflows/slack-notify.yml
+    with:
+      version: ${{ needs.verify.outputs.version }}
+      tag: ${{ needs.verify.outputs.tag }}
+      accepted: true
+      acceptance_status: accepted
+      retry: true
+      validation_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_RELEASE_CHANNEL_ID: ${{ secrets.SLACK_RELEASE_CHANNEL_ID }}

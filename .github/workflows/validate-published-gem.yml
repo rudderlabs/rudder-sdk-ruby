@@ -1,0 +1,75 @@
+# RESOLVE: SDK-5961 central published mode and SDK-5962 reviewed action commit, input names, and allowlist before merge; remove the fail-closed step below.
+name: Validate exact published gem
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      tag:
+        type: string
+        required: true
+      commit:
+        type: string
+        required: true
+    secrets:
+      RELEASE_PRIVATE_KEY:
+        required: true
+
+permissions: {}
+
+jobs:
+  validate:
+    if: >-
+      github.repository == 'rudderlabs/rudder-sdk-ruby' &&
+      ((github.event_name == 'release' && github.event.action == 'published' &&
+        !github.event.release.prerelease && github.ref == format('refs/tags/{0}', inputs.tag)) ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: published-gem-acceptance-${{ inputs.tag }}
+      cancel-in-progress: false
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Confirm exact release inputs
+        env:
+          VERSION: ${{ inputs.version }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_COMMIT: ${{ inputs.commit }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$RELEASE_TAG" == "v$VERSION" ]]
+          [[ "$RELEASE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+
+      # The currently published action has no package-version/origin-ref inputs.
+      # Do not dispatch an unversioned suite while SDK-5961/SDK-5962 are pending.
+      - name: Block unavailable published-mode contract
+        run: |
+          echo 'Published-mode E2E is not available until SDK-5961/SDK-5962 are merged and the reviewed action SHA is pinned.' >&2
+          exit 1
+
+      - name: Create a central validation token
+        id: token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_PRIVATE_KEY }}
+          owner: rudderlabs
+          repositories: rudder-sdk-e2e-tests
+          permission-actions: write
+
+      # Replace this historical SHA only with the reviewed final SDK-5962 commit.
+      - name: Validate exact RubyGems package with the full suite
+        uses: rudderlabs/github-action-sdk-e2e@9bcd97f1b28b1f2c3c7726ccae1bf435f4acf9c4
+        with:
+          token: ${{ steps.token.outputs.token }}
+          suite: full
+          package-version: ${{ inputs.version }}
+          source-sha: ${{ inputs.commit }}
+          source-ref: ${{ inputs.tag }}
