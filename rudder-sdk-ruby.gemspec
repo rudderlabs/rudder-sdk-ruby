@@ -23,8 +23,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rspec', '~> 3.0'
   spec.add_development_dependency 'tzinfo', '1.2.1'
   spec.add_development_dependency 'activesupport', '~> 6.0.2'
-  # ActiveSupport 6 passes quirks_mode to JSON, which json 3 no longer accepts.
-  spec.add_development_dependency 'json', '< 3'
   if RUBY_VERSION >= '2.0' && RUBY_PLATFORM != 'java'
     spec.add_development_dependency 'oj', '~> 3.6.2'
   end

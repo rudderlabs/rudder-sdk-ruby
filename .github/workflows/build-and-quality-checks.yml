@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
         
     steps:
       - name: Harden the runner (Audit all outbound calls)

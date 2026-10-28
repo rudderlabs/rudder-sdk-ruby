@@ -4,7 +4,8 @@ on:
   release:
     types: [published]
 
-permissions: {}
+permissions:
+  contents: read
 
 concurrency:
   group: publish-gem-${{ github.event.release.tag_name }}
@@ -13,15 +14,12 @@ concurrency:
 jobs:
   publish:
     name: Publish to RubyGems
-    if: ${{ !github.event.release.prerelease }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    environment: release
     outputs:
       version: ${{ steps.release.outputs.version }}
-      commit: ${{ steps.release.outputs.commit }}
-      tag: ${{ github.event.release.tag_name }}
-      pushed: ${{ steps.push.outputs.pushed }}
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name }}
     permissions:
@@ -34,23 +32,10 @@ jobs:
         with:
           egress-policy: audit
 
-      - name: Check out the release event commit
+      - name: Check out the release tag
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
-          ref: ${{ github.sha }}
           persist-credentials: false
-
-      - name: Verify the release tag still points to the event commit
-        env:
-          RELEASE_SHA: ${{ github.sha }}
-        run: |
-          remote_refs="$(git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$RELEASE_TAG" "refs/tags/$RELEASE_TAG^{}")"
-          tag_commit="$(awk '$2 ~ /\^\{\}$/ { print $1 }' <<< "$remote_refs")"
-          if [[ -z "$tag_commit" ]]; then
-            tag_commit="$(awk '$2 !~ /\^\{\}$/ { print $1 }' <<< "$remote_refs")"
-          fi
-          [[ "$tag_commit" == "$RELEASE_SHA" ]]
-          [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" ]]
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@d5126b9b3579e429dd52e51e68624dda2e05be25 # v1.267.0
@@ -60,7 +45,6 @@ jobs:
         run: |
           version="$(./scripts/publish_gem.sh validate)"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Build the gem
         env:
@@ -71,39 +55,62 @@ jobs:
         uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
 
       - name: Publish the gem
-        id: push
         env:
           GEM_FILE: rudder-sdk-ruby-${{ steps.release.outputs.version }}.gem
-        run: |
-          gem push "$GEM_FILE"
-          echo 'pushed=true' >> "$GITHUB_OUTPUT"
+        run: gem push "$GEM_FILE"
 
       - name: Verify the published version
         run: ./scripts/publish_gem.sh verify
 
-  acceptance:
-    name: Full published gem acceptance
+  published-e2e:
+    name: Accept exact published package
     needs: publish
-    uses: ./.github/workflows/validate-published-gem.yml
+    permissions:
+      contents: read
+    uses: ./.github/workflows/published-sdk-e2e.yml
     with:
-      version: ${{ needs.publish.outputs.version }}
-      tag: ${{ needs.publish.outputs.tag }}
-      commit: ${{ needs.publish.outputs.commit }}
+      package-version: ${{ needs.publish.outputs.version }}
     secrets:
       RELEASE_PRIVATE_KEY: ${{ secrets.RELEASE_PRIVATE_KEY }}
 
-  notify:
-    name: Notify release outcome
-    if: ${{ always() && needs.publish.outputs.pushed == 'true' }}
-    needs: [publish, acceptance]
-    uses: ./.github/workflows/slack-notify.yml
-    with:
-      version: ${{ needs.publish.outputs.version }}
-      tag: ${{ needs.publish.outputs.tag }}
-      accepted: ${{ needs.publish.result == 'success' && needs.acceptance.result == 'success' }}
-      acceptance_status: ${{ needs.publish.result != 'success' && 'registry verification failed or cancelled' || format('full E2E {0}', needs.acceptance.result) }}
-      validation_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      retry: false
-    secrets:
-      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-      SLACK_RELEASE_CHANNEL_ID: ${{ secrets.SLACK_RELEASE_CHANNEL_ID }}
+  notify-release:
+    name: Notify accepted release
+    needs: published-e2e
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+        with:
+          egress-policy: audit
+
+      - name: Send message to Slack channel
+        id: slack
+        uses: slackapi/slack-github-action@007b2c3c751a190b6f0f040e47ed024deaa72844 # v1.23.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          PROJECT_NAME: 'Ruby(Async) SDK'
+        with:
+          channel-id: "${{ secrets.SLACK_RELEASE_CHANNEL_ID }}"
+          payload: |
+            {
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "New release: ${{ env.PROJECT_NAME }}"
+                  }
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Release: <${{ github.event.release.html_url }}|${{ github.event.release.tag_name }}>*"
+                  }
+                }
+              ]
+            }

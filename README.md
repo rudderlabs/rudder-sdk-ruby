@@ -103,32 +103,10 @@ Refer to the [RudderStack Ruby SDK documentation](https://www.rudderstack.com/do
 
 Enable the `stub` option while initializing the SDK to stub all the requests, making it easier for you to test with this library.
 
-## Releasing and published-gem validation
-
-A non-prerelease GitHub release publishes the gem via RubyGems trusted publishing. The
-release workflow verifies the *exact* public RubyGems version before requesting the
-central full published-package E2E suite against the release tag's commit. Native PR
-and pre-publication checks remain separate from this hosted acceptance check.
-Only after both checks pass is the release announced as complete. If publication
-succeeds but public verification or full E2E fails, skips, or is cancelled,
-the notification says **published, acceptance** followed by the failed check's
-status and links to the validation run. Do not automatically unpublish the gem.
-
-To retry acceptance without building, publishing, or creating tags, run
-**Retry exact published gem acceptance** from the protected `master` branch with
-`version` (e.g. `1.2.3`), `tag` (`v1.2.3`), and the 40-character SHA of the
-existing release tag's commit. The retry requires the original completed
-release run's successful gem push at that SHA and rejects a moved tag, mismatched
-release metadata, source version, or missing exact RubyGems version; it never
-tests `latest` or a previous pinned gem. A successful retry announces acceptance, not a new publication.
-
-**Rollout dependency:** Until [SDK-5961](https://linear.app/rudderstack/issue/SDK-5961)
-(central published-mode provenance/cleanup) and [SDK-5962](https://linear.app/rudderstack/issue/SDK-5962)
-(shared action exact package-version/ref contract) are merged and the reviewed action
-SHA is pinned, this draft fails closed before dispatch. Hosted live acceptance is
-intentionally deferred until the next normal release; only implementation checks run
-for this change.
-
 ## License
 
 The RudderStack Ruby SDK is released under the [MIT license](https://github.com/rudderlabs/rudder-sdk-ruby/blob/readme-update/LICENSE).
+
+## Published-package E2E acceptance
+
+Release completion also requires the exact public package to pass full E2E delivery and cleanup checks. See [release acceptance and validation-only retries](.github/RELEASE_E2E.md). Hosted acceptance remains pending the next normal release.
