@@ -7,6 +7,10 @@ on:
         description: Exact version validated by the publisher
         required: true
         type: string
+      origin-sha:
+        description: Exact release event commit from the publisher
+        required: true
+        type: string
     secrets:
       RELEASE_PRIVATE_KEY:
         required: true
@@ -17,19 +21,24 @@ permissions:
   contents: read
 
 # Do not cancel live validation; the central workflow owns locking and cleanup.
+concurrency:
+  group: published-ruby-e2e-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   validate:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 55
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
       - name: Require an exact release tag
         env:
           PACKAGE_VERSION: ${{ inputs.package-version || github.ref_name }}
           RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
+          ORIGIN_SHA: ${{ inputs.origin-sha || github.sha }}
         shell: bash
         run: |
           if [[ "$GITHUB_EVENT_NAME" != release && "$GITHUB_EVENT_NAME" != workflow_dispatch ]]; then
@@ -38,13 +47,24 @@ jobs:
           fi
           if [[ "$GITHUB_REF_TYPE" != tag ]] ||
              [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] ||
-             [[ "${PACKAGE_VERSION#v}" != "${RELEASE_TAG#v}" ]]; then
+             [[ "${PACKAGE_VERSION#v}" != "${RELEASE_TAG#v}" ]] ||
+             [[ ! "$ORIGIN_SHA" =~ ^[0-9a-f]{40}$ ]] ||
+             [[ "$ORIGIN_SHA" != "$GITHUB_SHA" ]]; then
             echo 'Select the existing stable release tag that matches the exact package version.' >&2
             exit 1
           fi
+      - name: Check out the selected release tag
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        with:
+          persist-credentials: false
+          ref: ${{ github.ref }}
+      - name: Verify the tag still resolves to the event commit
+        env:
+          ORIGIN_SHA: ${{ inputs.origin-sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$ORIGIN_SHA"
       - name: Create a central validation token
         id: token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_PRIVATE_KEY }}

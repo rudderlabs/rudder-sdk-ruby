@@ -3,14 +3,26 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
     open-pull-requests-limit: 0
+    groups:
+      actions:
+        patterns: ['*']
+      security:
+        applies-to: security-updates
+        patterns: ['*']
     cooldown:
       default-days: 7
+      exclude:
+        - rudderlabs/*
   - package-ecosystem: 'bundler'
     directory: '/'
     schedule:
-      interval: 'monthly'
+      interval: 'weekly'
     open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ['*']
     cooldown:
       default-days: 7
