@@ -26,7 +26,7 @@ jobs:
   verify:
     name: Verify existing release and RubyGems artifact
     if: ${{ github.repository == 'rudderlabs/rudder-sdk-ruby' && github.ref == 'refs/heads/master' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read # fetch the existing release and checkout its tag
