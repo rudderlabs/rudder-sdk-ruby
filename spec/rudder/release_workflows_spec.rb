@@ -86,7 +86,7 @@ RSpec.describe 'published gem release workflows' do
     expect(blocker).to be < token
     expect(validate_steps[token].fetch('with')).to include('owner' => 'rudderlabs', 'repositories' => 'rudder-sdk-e2e-tests', 'permission-actions' => 'write')
     action = validate_steps.last
-    expect(action.fetch('uses')).to match(/rudderlabs\/github-action-sdk-e2e@[0-9a-f]{40}/)
+    expect(action.fetch('uses')).to match(%r(rudderlabs/github-action-sdk-e2e@[0-9a-f]{40}))
     expect(action.fetch('with')).to include('suite' => 'full', 'package-version' => '${{ inputs.version }}', 'source-sha' => '${{ inputs.commit }}', 'source-ref' => '${{ inputs.tag }}')
     expect(trigger(validation).keys).to eq(['workflow_call'])
   end
