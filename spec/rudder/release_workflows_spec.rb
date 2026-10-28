@@ -31,9 +31,13 @@ RSpec.describe 'published Ruby SDK release workflows' do
     expect(job.fetch('outputs')).to include('version' => '${{ steps.release.outputs.version }}',
                                             'origin-sha' => '${{ github.sha }}',
                                             'uploaded' => '${{ steps.upload.outputs.uploaded }}')
-    expect(publish.dig('jobs', 'published-e2e')).to include('needs' => 'publish',
-                                                          'with' => { 'package-version' => '${{ needs.publish.outputs.version }}',
-                                                                      'origin-sha' => '${{ needs.publish.outputs.origin-sha }}' })
+    acceptance = publish.dig('jobs', 'published-e2e')
+    expect(acceptance.fetch('needs')).to eq('publish')
+    expected_inputs = {
+      'package-version' => '${{ needs.publish.outputs.version }}',
+      'origin-sha' => '${{ needs.publish.outputs.origin-sha }}'
+    }
+    expect(acceptance.fetch('with')).to eq(expected_inputs)
   end
 
   it 'announces success only after acceptance and reports every post-upload failure as incomplete' do
