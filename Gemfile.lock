@@ -53,6 +53,8 @@ GEM
       racc (~> 1.4)
     nokogiri (1.15.7-arm64-darwin)
       racc (~> 1.4)
+    nokogiri (1.15.7-x86_64-linux)
+      racc (~> 1.4)
     oj (3.6.13)
     parallel (1.28.0)
     parser (3.3.13.0)
@@ -133,6 +135,7 @@ GEM
 PLATFORMS
   arm64-darwin-25
   ruby
+  x86_64-linux
 
 DEPENDENCIES
   activesupport (~> 6.0.2)
