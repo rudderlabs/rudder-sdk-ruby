@@ -204,7 +204,7 @@ module Rudder
             unless worker_thread.join(2)
               worker_thread.kill
               worker_thread.join
-              raise 'Worker did not finish after release'
+              raise Timeout::Error, 'Worker did not finish after release'
             end
           end
           worker_thread.value
