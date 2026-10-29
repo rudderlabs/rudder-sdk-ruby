@@ -2,7 +2,7 @@
 
 The published-package workflow runs the full central E2E suite for the exact stable release version. It uses the existing release App and waits for delivery validation and cleanup. The central workflow checks the release tag against the immutable event commit and `master` ancestry. It installs the exact public registry package and verifies native package metadata and integrity evidence.
 
-Acceptance starts only after the existing publisher succeeds. Existing native build, security, and publication checks remain in place. Release-complete notifications, where configured, wait for published-package acceptance.
+Acceptance starts only after the existing publisher succeeds. Before building or uploading the gem, the publisher checks that both its actual checkout HEAD and the current release tag match the release event commit. The thin validation caller delegates inherited release, tag, and commit verification to the shared workflow before App authentication. Existing native build, security, and publication checks remain in place. Release-complete notifications, where configured, wait for published-package acceptance.
 
 Full source-candidate E2E before publication is a separate rollout. Do not treat native tests or this post-publication check as that gate.
 

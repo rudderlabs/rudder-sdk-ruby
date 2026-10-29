@@ -74,19 +74,17 @@ RSpec.describe 'published Ruby SDK release workflows' do
     steps = job.fetch('steps')
     expect(steps.find { |step| step['name'] == 'Check out the release event commit' }.fetch('with')).not_to have_key('ref')
     names = steps.map { |step| step['name'] }
-    expect(names.index('Verify the release tag still points to the event commit')).to be < names.index('Publish the gem')
+    expect(names.index('Verify the release tag still points to the event commit')).to be < names.index('Build the gem')
     expect(steps.find { |step| step['name'] == 'Verify the release tag still points to the event commit' }.fetch('run')).to include('FETCH_HEAD^{commit}', '$RELEASE_SHA')
     expect(names.index('Verify the published version')).to be > names.index('Publish the gem')
     expect(steps.find { |step| step['name'] == 'Verify the published version' }.fetch('run')).to include('./scripts/publish_gem.sh verify', 'echo "verified=true"')
     expect(job.fetch('outputs')).to include('version' => '${{ steps.release.outputs.version }}',
-                                            'origin-sha' => '${{ github.sha }}',
                                             'uploaded' => '${{ steps.upload.outputs.uploaded }}',
                                             'verified' => '${{ steps.verify.outputs.verified }}')
     acceptance = publish.dig('jobs', 'published-e2e')
     expect(acceptance.fetch('needs')).to eq('publish')
     expected_inputs = {
-      'package-version' => '${{ needs.publish.outputs.version }}',
-      'origin-sha' => '${{ needs.publish.outputs.origin-sha }}'
+      'package-version' => '${{ needs.publish.outputs.version }}'
     }
     expect(acceptance.fetch('with')).to eq(expected_inputs)
   end
@@ -148,10 +146,9 @@ RSpec.describe 'published Ruby SDK release workflows' do
     expect(job.fetch('with')).to eq(expected_inputs)
     expect(job.fetch('secrets')).to eq('RELEASE_PRIVATE_KEY' => '${{ secrets.RELEASE_PRIVATE_KEY }}')
     expect(job).not_to have_key('steps')
-    expect(job.fetch('needs')).to eq('origin')
-    origin = validation.dig('jobs', 'origin', 'steps').first
-    expect(origin.dig('env', 'ORIGIN_SHA')).to eq('${{ inputs.origin-sha || github.sha }}')
-    expect(origin.fetch('run')).to include('"$ORIGIN_SHA" = "$GITHUB_SHA"')
+    expect(validation.fetch('jobs').keys).to eq(['validate'])
+    expect(triggers(validation).dig('workflow_call', 'inputs').keys).to eq(['package-version'])
+    expect(publish.dig('jobs', 'publish', 'outputs')).not_to have_key('origin-sha')
     expect(validation.to_s).not_to match(/gem push|slack-github-action|create.?tag/i)
   end
 
@@ -160,13 +157,41 @@ RSpec.describe 'published Ruby SDK release workflows' do
     expect(root.fetch('text')).to include('upload completed; registry validation failed or incomplete')
   end
 
-  it 'requires the actual publisher origin and rejects malformed Slack timestamps' do
+  it 'rejects a mismatched publisher checkout or moved release tag before building' do
     require_workflow_tools('bash')
-    origin = validation.dig('jobs', 'origin', 'steps').first.fetch('run')
-    { 'a' * 40 => true, 'b' * 40 => false }.each do |sha, accepted|
-      _stdout, _stderr, status = Open3.capture3({ 'ORIGIN_SHA' => sha, 'GITHUB_SHA' => 'a' * 40 }, 'bash', '-e', '-c', origin)
-      expect(status.success?).to eq(accepted)
+    guard = publish.dig('jobs', 'publish', 'steps').find { |step| step['name'] == 'Verify the release tag still points to the event commit' }.fetch('run')
+    mock_git = <<~BASH
+      #!/bin/bash
+      printf '%s\n' "$*" >> "$GIT_CALLS"
+      case "$1:$2" in
+        'rev-parse:HEAD') printf '%s\n' "$CHECKOUT_SHA" ;;
+        'rev-parse:FETCH_HEAD^{commit}') printf '%s\n' "$TAG_SHA" ;;
+        'fetch:--no-tags') exit 0 ;;
+        *) exit 2 ;;
+      esac
+    BASH
+    Dir.mktmpdir do |directory|
+      git = File.join(directory, 'git')
+      calls = File.join(directory, 'calls')
+      File.write(git, mock_git)
+      File.chmod(0o755, git)
+      [['a', 'a', true], ['b', 'a', false], ['a', 'b', false]].each do |head, tag, accepted|
+        File.write(calls, '')
+        environment = {
+          'PATH' => "#{directory}:#{ENV.fetch('PATH')}", 'GIT_CALLS' => calls,
+          'CHECKOUT_SHA' => head * 40, 'TAG_SHA' => tag * 40,
+          'RELEASE_SHA' => 'a' * 40, 'RELEASE_TAG' => 'v1.2.3'
+        }
+        _stdout, stderr, status = Open3.capture3(environment, 'bash', '-e', '-o', 'pipefail', '-c', guard)
+        expect(status.success?).to eq(accepted), stderr
+        expect(File.read(calls)).to start_with("rev-parse HEAD\n")
+        expect(File.read(calls).include?('fetch --no-tags')).to eq(head == 'a')
+      end
     end
+  end
+
+  it 'rejects malformed Slack timestamps' do
+    require_workflow_tools('bash')
     guard = publish.dig('jobs', 'notify-release', 'steps').find { |step| step['name'] == 'Require the root message timestamp' }.fetch('run')
     ['', 'invalid', '123.456'].each do |timestamp|
       _stdout, _stderr, status = Open3.capture3({ 'ROOT_TS' => timestamp }, 'bash', '-e', '-c', guard)

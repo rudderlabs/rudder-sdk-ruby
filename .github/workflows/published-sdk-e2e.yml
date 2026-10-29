@@ -14,10 +14,6 @@ on:
         description: Exact version validated by the publisher
         required: true
         type: string
-      origin-sha:
-        description: Exact release event commit from the publisher
-        required: true
-        type: string
     secrets:
       RELEASE_PRIVATE_KEY:
         required: true
@@ -27,20 +23,8 @@ on:
 permissions:
   contents: read
 
-# Do not cancel live validation; the central workflow owns locking and cleanup.
 jobs:
-  origin:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions: {}
-    steps:
-      - name: Verify publisher event identity
-        env:
-          ORIGIN_SHA: ${{ inputs.origin-sha || github.sha }}
-        run: test "$ORIGIN_SHA" = "$GITHUB_SHA"
-
   validate:
-    needs: origin
     uses: rudderlabs/github-action-sdk-e2e/.github/workflows/published-sdk-e2e.yml@b6de40cc65abe8ee6c6593aac1787aea746b671f # v1.0.0
     with:
       package-version: ${{ inputs.package-version || github.ref_name }}
