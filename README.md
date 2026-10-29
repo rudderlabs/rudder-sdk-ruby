@@ -106,3 +106,7 @@ Enable the `stub` option while initializing the SDK to stub all the requests, ma
 ## License
 
 The RudderStack Ruby SDK is released under the [MIT license](https://github.com/rudderlabs/rudder-sdk-ruby/blob/readme-update/LICENSE).
+
+## Published-package E2E acceptance
+
+Release completion also requires the exact public package to pass full E2E delivery and cleanup checks. See [release acceptance and validation-only retries](.github/RELEASE_E2E.md). Hosted acceptance remains pending the next normal release.

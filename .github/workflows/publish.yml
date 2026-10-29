@@ -2,7 +2,7 @@ name: Publish gem
 
 on:
   release:
-    types: [published, released]
+    types: [published]
 
 permissions:
   contents: read
@@ -14,8 +14,13 @@ concurrency:
 jobs:
   publish:
     name: Publish to RubyGems
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      uploaded: ${{ steps.upload.outputs.uploaded }}
+      verified: ${{ steps.verify.outputs.verified }}
     if: ${{ !github.event.release.prerelease }}
-    runs-on: ubuntu-latest
+    # Ruby 2.7.6 setup fails on Ubuntu 26.04; keep the native job on 24.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: release
     env:
@@ -30,7 +35,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - name: Check out the release tag
+      - name: Check out the release event commit
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           persist-credentials: false
@@ -44,6 +49,14 @@ jobs:
           version="$(./scripts/publish_gem.sh validate)"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - name: Verify the release tag still points to the event commit
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git fetch --no-tags --depth=1 origin "refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "$RELEASE_SHA"
+
       - name: Build the gem
         env:
           GEM_FILE: rudder-sdk-ruby-${{ steps.release.outputs.version }}.gem
@@ -53,9 +66,122 @@ jobs:
         uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
 
       - name: Publish the gem
+        id: upload
         env:
           GEM_FILE: rudder-sdk-ruby-${{ steps.release.outputs.version }}.gem
-        run: gem push "$GEM_FILE"
+        run: |
+          gem push "$GEM_FILE"
+          echo "uploaded=true" >> "$GITHUB_OUTPUT"
 
       - name: Verify the published version
-        run: ./scripts/publish_gem.sh verify
+        id: verify
+        run: |
+          ./scripts/publish_gem.sh verify
+          echo "verified=true" >> "$GITHUB_OUTPUT"
+
+  published-e2e:
+    name: Accept exact published package
+    needs: publish
+    permissions:
+      contents: read
+    uses: ./.github/workflows/published-sdk-e2e.yml
+    with:
+      package-version: ${{ needs.publish.outputs.version }}
+    secrets:
+      RELEASE_PRIVATE_KEY: ${{ secrets.RELEASE_PRIVATE_KEY }}
+
+  notify-release:
+    name: Notify publication and acceptance outcome
+    needs: [publish, published-e2e]
+    if: ${{ always() && github.event_name == 'release' && github.event.action == 'published' && !github.event.release.prerelease && github.run_attempt == '1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      RELEASE_VERSION: ${{ needs.publish.outputs.version }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      RELEASE_URL: ${{ github.event.release.html_url }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      PUBLISH_RESULT: ${{ needs.publish.result }}
+      UPLOADED: ${{ needs.publish.outputs.uploaded }}
+      REGISTRY_VERIFIED: ${{ needs.publish.outputs.verified }}
+      E2E_RESULT: ${{ needs.published-e2e.result }}
+      CENTRAL_RUN_URL: ${{ needs.published-e2e.outputs.run-url }}
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+        with:
+          egress-policy: audit
+
+      - name: Prepare release notification
+        id: message
+        shell: bash
+        run: |
+          if [[ "$PUBLISH_RESULT" == success && "$REGISTRY_VERIFIED" == true && "$E2E_RESULT" == success ]]; then
+            status='accepted'
+          elif [[ "$REGISTRY_VERIFIED" == true ]]; then
+            status='published; validation failed or incomplete'
+          elif [[ "$UPLOADED" == true ]]; then
+            status='upload completed; registry validation failed or incomplete'
+          else
+            status='publication failed or unconfirmed; acceptance incomplete'
+          fi
+          if [[ "$REGISTRY_VERIFIED" == true ]]; then
+            registry_result='verified'
+            registry_url="https://rubygems.org/gems/rudder-sdk-ruby/versions/$RELEASE_VERSION"
+            registry_label="RubyGems v$RELEASE_VERSION"
+          else
+            registry_result='unconfirmed'
+            registry_url='https://rubygems.org/gems/rudder-sdk-ruby'
+            registry_label='RubyGems package page'
+          fi
+          check_result="Publish job: $PUBLISH_RESULT; exact RubyGems verification: $registry_result; full E2E delivery and cleanup: $E2E_RESULT"
+          release_date="$(date -u +%Y-%m-%d)"
+          jq -cn --arg status "$status" --arg tag "$RELEASE_TAG" --arg date "$release_date" \
+            '{text: ("*Ruby(Async) SDK " + $tag + " - " + $status + "*\n" + $date + "\nCC: <!subteam^S0555JBV36D> <!subteam^S03SW7DM8P3> <!subteam^S03SHJ20350>"), unfurl_links: false, unfurl_media: false}' \
+            | sed 's/^/root=/' >> "$GITHUB_OUTPUT"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "check_result=$check_result" >> "$GITHUB_OUTPUT"
+          echo "registry_url=$registry_url" >> "$GITHUB_OUTPUT"
+          echo "registry_label=$registry_label" >> "$GITHUB_OUTPUT"
+          printf 'Ruby SDK %s: %s\n\n%s\nCentral E2E: %s\n' "$RELEASE_TAG" "$status" "$check_result" "$CENTRAL_RUN_URL" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post short release status
+        id: root
+        uses: slackapi/slack-github-action@007b2c3c751a190b6f0f040e47ed024deaa72844 # v1.23.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        with:
+          channel-id: "${{ secrets.SLACK_RELEASE_CHANNEL_ID }}"
+          payload: ${{ steps.message.outputs.root }}
+
+      - name: Require the root message timestamp
+        env:
+          ROOT_TS: ${{ steps.root.outputs.ts }}
+        run: |
+          if [[ ! "$ROOT_TS" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo 'Slack root message returned no valid timestamp.' >&2
+            exit 1
+          fi
+
+      - name: Prepare thread details
+        id: thread
+        env:
+          ROOT_TS: ${{ steps.root.outputs.ts }}
+          RELEASE_STATUS: ${{ steps.message.outputs.status }}
+          CHECK_RESULT: ${{ steps.message.outputs.check_result }}
+          REGISTRY_URL: ${{ steps.message.outputs.registry_url }}
+          REGISTRY_LABEL: ${{ steps.message.outputs.registry_label }}
+        run: |
+          jq -cn --arg ts "$ROOT_TS" --arg status "$RELEASE_STATUS" --arg checks "$CHECK_RESULT" \
+            --arg registry_url "$REGISTRY_URL" --arg registry_label "$REGISTRY_LABEL" \
+            --arg release "$RELEASE_URL" --arg run "$RUN_URL" --arg central "$CENTRAL_RUN_URL" \
+            '{text: ("*" + $status + "*\nChecks: " + $checks + "\n<" + $registry_url + "|" + $registry_label + "> | <" + $release + "|Release> | <" + $run + "|Validation run>" + (if $central != "" then " | <" + $central + "|Central E2E run>" else "" end)), thread_ts: $ts, reply_broadcast: false, unfurl_links: false, unfurl_media: false}' \
+            | sed 's/^/reply=/' >> "$GITHUB_OUTPUT"
+
+      - name: Post release details in the thread
+        uses: slackapi/slack-github-action@007b2c3c751a190b6f0f040e47ed024deaa72844 # v1.23.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        with:
+          channel-id: "${{ secrets.SLACK_RELEASE_CHANNEL_ID }}"
+          payload: ${{ steps.thread.outputs.reply }}
