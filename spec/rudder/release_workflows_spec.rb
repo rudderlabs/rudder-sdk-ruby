@@ -126,18 +126,15 @@ RSpec.describe 'published Ruby SDK release workflows' do
     expect(triggers(validation).keys).to contain_exactly('workflow_call', 'workflow_dispatch')
     expect(validation.dig('concurrency', 'cancel-in-progress')).to be(false)
     job = validation.dig('jobs', 'validate')
-    expect(job.fetch('runs-on')).to eq('ubuntu-latest')
-    steps = job.fetch('steps')
-    guard = steps.find { |step| step['name'] == 'Require an exact release tag' }.fetch('run')
-    expect(guard).to include('"$GITHUB_REF_TYPE" != tag', '"$ORIGIN_SHA" != "$GITHUB_SHA"')
-    expect(guard).to include('"${PACKAGE_VERSION#v}" != "${RELEASE_TAG#v}"')
-    expect(steps.find { |step| step['name'] == 'Verify the tag still resolves to the event commit' }.fetch('run')).to include('git rev-parse HEAD', '$ORIGIN_SHA')
-    token = steps.find { |step| step['id'] == 'token' }
-    expect(steps.index(token)).to be > steps.index { |step| step['name'] == 'Verify the tag still resolves to the event commit' }
-    expect(token.fetch('with')).to include('owner' => 'rudderlabs', 'repositories' => 'rudder-sdk-e2e-tests', 'permission-actions' => 'write')
-    action = steps.last
-    expect(action.fetch('with')).to include('package-version' => '${{ inputs.package-version || github.ref_name }}', 'suite' => 'full')
-    expect(steps.find { |step| step['name'] == 'Require an exact release tag' }.dig('env', 'ORIGIN_SHA')).to eq('${{ inputs.origin-sha || github.sha }}')
-    expect(steps.to_s).not_to match(/gem push|slack-github-action|create.?tag/i)
+    expect(job.fetch('uses')).to match(%r{\Arudderlabs/github-action-sdk-e2e/\.github/workflows/published-sdk-e2e\.yml@[0-9a-f]{40}\z})
+    expect(job.fetch('with')).to include('package-version' => '${{ inputs.package-version || github.ref_name }}',
+                                        'release-app-client-id' => '${{ vars.RELEASE_APP_CLIENT_ID }}')
+    expect(job.fetch('secrets')).to eq('RELEASE_PRIVATE_KEY' => '${{ secrets.RELEASE_PRIVATE_KEY }}')
+    expect(job).not_to have_key('steps')
+    expect(job.fetch('needs')).to eq('origin')
+    origin = validation.dig('jobs', 'origin', 'steps').first
+    expect(origin.dig('env', 'ORIGIN_SHA')).to eq('${{ inputs.origin-sha || github.sha }}')
+    expect(origin.fetch('run')).to include('"$ORIGIN_SHA" = "$GITHUB_SHA"')
+    expect(validation.to_s).not_to match(/gem push|slack-github-action|create.?tag/i)
   end
 end
