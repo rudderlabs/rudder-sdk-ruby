@@ -40,7 +40,6 @@ jobs:
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           persist-credentials: false
-          ref: ${{ github.sha }}
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@d5126b9b3579e429dd52e51e68624dda2e05be25 # v1.267.0
@@ -95,7 +94,7 @@ jobs:
   notify-release:
     name: Notify publication and acceptance outcome
     needs: [publish, published-e2e]
-    if: ${{ always() && github.event_name == 'release' && github.event.action == 'published' && !github.event.release.prerelease }}
+    if: ${{ always() && github.event_name == 'release' && github.event.action == 'published' && !github.event.release.prerelease && github.run_attempt == '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
@@ -104,8 +103,10 @@ jobs:
       RELEASE_URL: ${{ github.event.release.html_url }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       PUBLISH_RESULT: ${{ needs.publish.result }}
+      UPLOADED: ${{ needs.publish.outputs.uploaded }}
       REGISTRY_VERIFIED: ${{ needs.publish.outputs.verified }}
       E2E_RESULT: ${{ needs.published-e2e.result }}
+      CENTRAL_RUN_URL: ${{ needs.published-e2e.outputs.run-url }}
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
@@ -120,6 +121,8 @@ jobs:
             status='accepted'
           elif [[ "$REGISTRY_VERIFIED" == true ]]; then
             status='published; validation failed or incomplete'
+          elif [[ "$UPLOADED" == true ]]; then
+            status='upload completed; registry validation failed or incomplete'
           else
             status='publication failed or unconfirmed; acceptance incomplete'
           fi
@@ -141,6 +144,7 @@ jobs:
           echo "check_result=$check_result" >> "$GITHUB_OUTPUT"
           echo "registry_url=$registry_url" >> "$GITHUB_OUTPUT"
           echo "registry_label=$registry_label" >> "$GITHUB_OUTPUT"
+          printf 'Ruby SDK %s: %s\n\n%s\nCentral E2E: %s\n' "$RELEASE_TAG" "$status" "$check_result" "$CENTRAL_RUN_URL" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Post short release status
         id: root
@@ -154,7 +158,11 @@ jobs:
       - name: Require the root message timestamp
         env:
           ROOT_TS: ${{ steps.root.outputs.ts }}
-        run: test -n "$ROOT_TS"
+        run: |
+          if [[ ! "$ROOT_TS" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo 'Slack root message returned no valid timestamp.' >&2
+            exit 1
+          fi
 
       - name: Prepare thread details
         id: thread
@@ -167,8 +175,8 @@ jobs:
         run: |
           jq -cn --arg ts "$ROOT_TS" --arg status "$RELEASE_STATUS" --arg checks "$CHECK_RESULT" \
             --arg registry_url "$REGISTRY_URL" --arg registry_label "$REGISTRY_LABEL" \
-            --arg release "$RELEASE_URL" --arg run "$RUN_URL" \
-            '{text: ("*" + $status + "*\nChecks: " + $checks + "\n<" + $registry_url + "|" + $registry_label + "> | <" + $release + "|Release> | <" + $run + "|Validation run>"), thread_ts: $ts, reply_broadcast: false, unfurl_links: false, unfurl_media: false}' \
+            --arg release "$RELEASE_URL" --arg run "$RUN_URL" --arg central "$CENTRAL_RUN_URL" \
+            '{text: ("*" + $status + "*\nChecks: " + $checks + "\n<" + $registry_url + "|" + $registry_label + "> | <" + $release + "|Release> | <" + $run + "|Validation run>" + (if $central != "" then " | <" + $central + "|Central E2E run>" else "" end)), thread_ts: $ts, reply_broadcast: false, unfurl_links: false, unfurl_media: false}' \
             | sed 's/^/reply=/' >> "$GITHUB_OUTPUT"
 
       - name: Post release details in the thread
