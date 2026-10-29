@@ -163,13 +163,13 @@ RSpec.describe 'published Ruby SDK release workflows' do
   it 'requires the actual publisher origin and rejects malformed Slack timestamps' do
     require_workflow_tools('bash')
     origin = validation.dig('jobs', 'origin', 'steps').first.fetch('run')
-    {'a' * 40 => true, 'b' * 40 => false}.each do |sha, accepted|
-      _stdout, _stderr, status = Open3.capture3({'ORIGIN_SHA' => sha, 'GITHUB_SHA' => 'a' * 40}, 'bash', '-e', '-c', origin)
+    { 'a' * 40 => true, 'b' * 40 => false }.each do |sha, accepted|
+      _stdout, _stderr, status = Open3.capture3({ 'ORIGIN_SHA' => sha, 'GITHUB_SHA' => 'a' * 40 }, 'bash', '-e', '-c', origin)
       expect(status.success?).to eq(accepted)
     end
     guard = publish.dig('jobs', 'notify-release', 'steps').find { |step| step['name'] == 'Require the root message timestamp' }.fetch('run')
     ['', 'invalid', '123.456'].each do |timestamp|
-      _stdout, _stderr, status = Open3.capture3({'ROOT_TS' => timestamp}, 'bash', '-e', '-c', guard)
+      _stdout, _stderr, status = Open3.capture3({ 'ROOT_TS' => timestamp }, 'bash', '-e', '-c', guard)
       expect(status.success?).to eq(timestamp == '123.456')
     end
   end
