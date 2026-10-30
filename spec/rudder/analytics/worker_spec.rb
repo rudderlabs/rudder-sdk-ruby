@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'timeout'
 
 module Rudder
   class Analytics
@@ -182,25 +183,32 @@ module Rudder
         end
 
         it 'returns true if there is a current batch' do
-          Rudder::Analytics::Transport
-            .any_instance
-            .stub(:send) {
-              sleep(0.2)
-              Rudder::Analytics::Response.new(200, 'Success')
-            }
-
           queue = Queue.new
           queue << Requested::TRACK
           config = Configuration.new({ :write_key => 'write_key', :data_plane_url => 'data_plane_url' })
           worker = Rudder::Analytics::Worker.new(queue, config)
+          started = Queue.new
+          release = Queue.new
+          allow(worker.instance_variable_get(:@transport)).to receive(:send) do
+            started << true
+            release.pop
+            Rudder::Analytics::Response.new(200, 'Success')
+          end
 
           worker_thread = Thread.new { worker.run }
-          eventually { expect(worker.is_requesting?).to eq(true) }
-
-          worker_thread.join
+          begin
+            Timeout.timeout(2) { started.pop }
+            expect(worker.is_requesting?).to eq(true)
+          ensure
+            release << true
+            unless worker_thread.join(2)
+              worker_thread.kill
+              worker_thread.join
+              raise Timeout::Error, 'Worker did not finish after release'
+            end
+          end
+          worker_thread.value
           expect(worker.is_requesting?).to eq(false)
-
-          Rudder::Analytics::Transport.any_instance.unstub(:send)
         end
       end
     end
