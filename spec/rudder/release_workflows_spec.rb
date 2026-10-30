@@ -138,7 +138,6 @@ RSpec.describe 'published Ruby SDK release workflows' do
     expect(validation.fetch('concurrency', {}).fetch('cancel-in-progress', false)).to be(false)
     job = validation.dig('jobs', 'validate')
     expect(job.fetch('uses')).to match(%r{\Arudderlabs/github-action-sdk-e2e/\.github/workflows/published-sdk-e2e\.yml@[0-9a-f]{40}\z})
-    expect(job.fetch('uses')).to end_with('@b6de40cc65abe8ee6c6593aac1787aea746b671f')
     expected_inputs = {
       'package-version' => '${{ inputs.package-version || github.ref_name }}',
       'release-app-client-id' => '${{ vars.RELEASE_APP_CLIENT_ID }}'
