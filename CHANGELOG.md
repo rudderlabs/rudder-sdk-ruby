@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.2.2](https://github.com/rudderlabs/rudder-sdk-ruby/compare/v3.2.1...v3.2.2) (2026-10-30)
+
+
+### Miscellaneous
+
+* apply security-first dependabot policy ([#57](https://github.com/rudderlabs/rudder-sdk-ruby/issues/57)) ([bde2ce6](https://github.com/rudderlabs/rudder-sdk-ruby/commit/bde2ce6aaa96baff1aed2e28fe2328ce91890c8b))
+* move the PR title check to check-pr-title v2.0.3 ([#58](https://github.com/rudderlabs/rudder-sdk-ruby/issues/58)) ([06f2278](https://github.com/rudderlabs/rudder-sdk-ruby/commit/06f2278a96123f412903530758a95cef560d5c96))
+* remove notion-pr-sync workflow ([#52](https://github.com/rudderlabs/rudder-sdk-ruby/issues/52)) ([d6520d8](https://github.com/rudderlabs/rudder-sdk-ruby/commit/d6520d8dafe8c06c0cc5ac637a73d7e9e461babd))
+* retain resolved bundler inventory over https ([#60](https://github.com/rudderlabs/rudder-sdk-ruby/issues/60)) ([b25f7cc](https://github.com/rudderlabs/rudder-sdk-ruby/commit/b25f7ccc7ab5a6728a49711ac97ea0413f09babf))
+* run full live e2e on release prs ([#62](https://github.com/rudderlabs/rudder-sdk-ruby/issues/62)) ([fa903a4](https://github.com/rudderlabs/rudder-sdk-ruby/commit/fa903a48895a85cc99b9c4800827e5960887f41e))
+* switch branding images to CDN URLs ([#56](https://github.com/rudderlabs/rudder-sdk-ruby/issues/56)) ([c2f5ad6](https://github.com/rudderlabs/rudder-sdk-ruby/commit/c2f5ad69d088a01a43e893d52b65e21bf23fbb71))
+* update readme with new branding images ([#54](https://github.com/rudderlabs/rudder-sdk-ruby/issues/54)) ([10fc469](https://github.com/rudderlabs/rudder-sdk-ruby/commit/10fc469699d042b34f8ae30b3da2eab06a92c5a8))
+* validate the exact published ruby gem ([#59](https://github.com/rudderlabs/rudder-sdk-ruby/issues/59)) ([60eb519](https://github.com/rudderlabs/rudder-sdk-ruby/commit/60eb51922ee667195e0f67ba7e3cbb10d6e83806))
+* verify published e2e with per-run cleanup ([#61](https://github.com/rudderlabs/rudder-sdk-ruby/issues/61)) ([5543e56](https://github.com/rudderlabs/rudder-sdk-ruby/commit/5543e56753276f9c8def3f3f82ff0094a6c2a8b6))
+
 ## [3.2.1](https://github.com/rudderlabs/rudder-sdk-ruby/compare/v3.2.0...v3.2.1) (2026-07-22)
 
 
