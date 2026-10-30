@@ -21,7 +21,7 @@ Gem::Specification.new do |spec|
   # Used in specs
   spec.add_development_dependency 'rake', '~> 10.3'
   spec.add_development_dependency 'rspec', '~> 3.0'
-  spec.add_development_dependency 'tzinfo', '1.2.1'
+  spec.add_development_dependency 'tzinfo', '1.2.11'
   spec.add_development_dependency 'activesupport', '~> 6.0.2'
   # ActiveSupport 6 passes quirks_mode to JSON, which json 3 no longer accepts.
   spec.add_development_dependency 'json', '< 3'
