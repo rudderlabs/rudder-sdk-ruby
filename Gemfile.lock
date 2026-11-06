@@ -126,7 +126,7 @@ GEM
     thread_safe (0.3.6)
     tilt (2.9.0)
     tsort (0.2.0)
-    tzinfo (1.2.1)
+    tzinfo (1.2.11)
       thread_safe (~> 0.1)
     unicode-display_width (1.6.1)
     yard (0.9.45)
@@ -149,7 +149,7 @@ DEPENDENCIES
   rubocop (~> 0.78.0)
   rudder-sdk-ruby!
   solargraph
-  tzinfo (= 1.2.1)
+  tzinfo (= 1.2.11)
 
 BUNDLED WITH
    2.3.0
