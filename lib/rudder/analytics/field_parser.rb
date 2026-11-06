@@ -192,7 +192,7 @@ module Rudder
         end
 
         def delete_library_from_context!(context)
-          context.delete(:library) if context # rubocop:disable Style/SafeNavigation
+          context.delete(:library) if context
         end
 
         def add_context!(context)

@@ -100,12 +100,13 @@ module Rudder
       end
 
       def header_value(headers, name)
-        headers.find { |header_name, _| header_name.to_s.casecmp(name).zero? }&.last
+        pair = headers.find { |header_name, _| header_name.to_s.casecmp(name).zero? }
+        pair && pair.last
       end
 
       def parse_retry_after_delay(value)
         value = value.to_s.strip
-        return value.to_i * 1000 if value.match?(/\A\d+\z/)
+        return value.to_i * 1000 if value.match(/\A\d+\z/)
 
         retry_at = Time.httpdate(value)
         [((retry_at - Time.now) * 1000).ceil, 0].max

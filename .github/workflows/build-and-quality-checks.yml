@@ -38,3 +38,15 @@ jobs:
       #   run: gem install rubocop-rails
       # - name: Execute linting
       #   run: bundle exec rubocop
+
+      - name: Package the SDK with the development Ruby
+        run: gem build rudder-sdk-ruby.gemspec --output "$RUNNER_TEMP/sdk.gem"
+      - name: Set up the minimum runtime Ruby
+        uses: ruby/setup-ruby@d5126b9b3579e429dd52e51e68624dda2e05be25 # v1.267.0
+        with:
+          ruby-version: '2.0.0-p648'
+          bundler: none
+      - name: Install and exercise the packaged SDK without development gems
+        run: |
+          gem install --local --no-document "$RUNNER_TEMP/sdk.gem"
+          ruby scripts/runtime-smoke.rb
