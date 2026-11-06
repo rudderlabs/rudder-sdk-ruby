@@ -10,7 +10,7 @@ module Rudder
       # public: Return a new hash with keys converted from strings to symbols
       #
       def symbolize_keys(hash)
-        hash.transform_keys(&:to_sym)
+        hash.each_with_object({}) { |(key, value), result| result[key.to_sym] = value }
       end
 
       # public: Convert hash keys from strings to symbols in place
@@ -77,7 +77,7 @@ module Rudder
       end
 
       def seconds_to_utc_offset(seconds, colon = true)
-        (colon ? UTC_OFFSET_WITH_COLON : UTC_OFFSET_WITHOUT_COLON) % [(seconds.negative? ? '-' : '+'), (seconds.abs / 3600), ((seconds.abs % 3600) / 60)]
+        (colon ? UTC_OFFSET_WITH_COLON : UTC_OFFSET_WITHOUT_COLON) % [(seconds < 0 ? '-' : '+'), (seconds.abs / 3600), ((seconds.abs % 3600) / 60)]
       end
 
       def check_string(obj, name)

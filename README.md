@@ -29,6 +29,9 @@
 
 The RudderStack Ruby SDK lets you send customer event data from your Ruby applications to your specified destinations.
 
+The installed SDK supports Ruby 2.0 and later. To build the gem or run the development suite, use the Ruby version in `.ruby-version` (2.7.6). Oj is a development dependency.
+
+
 ## SDK setup requirements
 
 - Set up a [RudderStack open source](https://app.rudderstack.com/signup?type=opensource) account.

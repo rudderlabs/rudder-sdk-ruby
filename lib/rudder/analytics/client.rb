@@ -203,7 +203,7 @@ module Rudder
       end
 
       def worker_running?
-        @worker_thread&.alive?
+        @worker_thread && @worker_thread.alive?
       end
     end
   end

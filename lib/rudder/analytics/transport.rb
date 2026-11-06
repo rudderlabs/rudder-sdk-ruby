@@ -111,12 +111,12 @@ module Rudder
         remaining = @retry_policy.max_retries - retry_number
         logger.debug("Retrying request after #{reason} in #{delay}s " \
                      "(attempt #{retry_number} of #{@retry_policy.max_attempts}, #{remaining} retries left)")
-        sleep(delay) if delay.positive?
+        sleep(delay) if delay > 0
       end
 
       def error_response(exception)
         logger.error(exception.message)
-        exception.backtrace&.each { |line| logger.error(line) }
+        Array(exception.backtrace).each { |line| logger.error(line) }
         Response.new(-1, exception.to_s)
       end
 

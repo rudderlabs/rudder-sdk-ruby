@@ -91,3 +91,10 @@ Style/ParallelAssignment:
 
 Style/PreferredHashMethods:
   EnforcedStyle: verbose
+
+# These suggestions require Ruby 2.3, above the SDK runtime minimum.
+Style/SafeNavigation:
+  Enabled: false
+
+Style/NumericPredicate:
+  Enabled: false
