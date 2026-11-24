@@ -34,7 +34,7 @@ jobs:
         with:
           bundler-cache: true
 
-      # SimpleCov (spec/spec_helper.rb) writes coverage/.resultset.json for the scan. Only the main suite runs here:
+      # SimpleCov (spec/spec_helper.rb) writes coverage/coverage.json for the scan. Only the main suite runs here:
       # the isolated suites in the Rakefile run in separate processes and would replace this result.
       - name: Run tests with coverage
         run: bundle exec rspec --pattern 'spec/rudder/**/*_spec.rb'
