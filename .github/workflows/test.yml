@@ -16,7 +16,8 @@ jobs:
       contents: read  # for actions/checkout to fetch code
       pull-requests: read  # for SonarSource/sonarqube-scan-action to determine which PR to decorate
     name: 'Tests & Coverage'
-    runs-on: ubuntu-latest
+    # Ruby 2.7.6 setup fails on Ubuntu 26.04; same runner as build-and-quality-checks.yml.
+    runs-on: ubuntu-24.04
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
@@ -28,6 +29,16 @@ jobs:
         with:
           persist-credentials: false
       
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@d5126b9b3579e429dd52e51e68624dda2e05be25 # v1.267.0
+        with:
+          bundler-cache: true
+
+      # SimpleCov (spec/spec_helper.rb) writes coverage/coverage.json for the scan. Only the main suite runs here:
+      # the isolated suites in the Rakefile run in separate processes and would replace this result.
+      - name: Run tests with coverage
+        run: bundle exec rspec --pattern 'spec/rudder/**/*_spec.rb'
+
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
         env:

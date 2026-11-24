@@ -2,7 +2,15 @@
 
 # https://github.com/codecov/codecov-ruby#usage
 require 'simplecov'
-SimpleCov.start
+require 'simplecov_json_formatter'
+# HTML for people, coverage/coverage.json for the SonarCloud scan (test.yml).
+SimpleCov.formatters = SimpleCov::Formatter::MultiFormatter.new(
+  [SimpleCov::Formatter::HTMLFormatter, SimpleCov::Formatter::JSONFormatter]
+)
+SimpleCov.start do
+  # Count every SDK file, including files the specs never load (for example lib/rudder-sdk-ruby.rb).
+  track_files 'lib/**/*.rb'
+end
 
 # The legacy Codecov Ruby uploader is opt-in so normal test runs do not fail
 # while attempting to upload coverage from every RSpec process.
