@@ -131,8 +131,7 @@ module Rudder
           :batch => batch.messages
         }
         if stub
-          logger.debug "stubbed request to #{@path}: " \
-            "write key = #{write_key}, batch = #{JSON.generate(payload)}"
+          logger.debug "stubbed request to #{@path}: batch = #{JSON.generate(payload)}"
 
           [200, '{}', {}]
         else
