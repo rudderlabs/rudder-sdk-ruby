@@ -81,15 +81,14 @@ analytics.track(
 
 ## Gzipping requests
 
-The Gzip feature is enabled by default in the Ruby SDK. However, you can disable this feature by setting the `gzip` parameter to false while initializing the SDK:
-
+The Gzip feature is enabled by default in the Ruby SDK. However, you can disable this feature by setting the `gzip` parameter to `false` while initializing the SDK:
 
 ```ruby
 analytics = Rudder::Analytics.new(
   :write_key => 'WRITE_KEY', # required
   :data_plane_url => 'DATA_PLANE_URL',
-  :gzip => false, // Set to true to enable Gzip compression
-  :on_error => proc { |error_code, error_body, exception, response|
+  :gzip => false, # Set to true to enable Gzip compression
+  :on_error => proc { |status, error|
     # defaults to an empty proc
   }
 )
@@ -97,6 +96,29 @@ analytics = Rudder::Analytics.new(
 
 | Note: Gzip requires `rudder-server` version 1.4 or later. Otherwise, your events might fail. |
 | :-----|
+
+## Error handling
+
+You can pass `:on_error` and `:on_error_with_messages` callbacks when initializing the SDK to handle failed batch requests (after retries are exhausted) and JSON serialization errors. Both callbacks default to an empty `proc` and are invoked if configured:
+
+```ruby
+analytics = Rudder::Analytics.new(
+  :write_key => 'WRITE_KEY',
+  :data_plane_url => 'DATA_PLANE_URL',
+  :on_error => proc { |status, error|
+    puts "Request failed with status #{status}: #{error}"
+  },
+  :on_error_with_messages => proc { |status, error, messages|
+    puts "Failed to send #{messages.length} message(s) (status #{status}): #{error}"
+  }
+)
+```
+
+Callback parameters:
+
+- `status`: Integer HTTP status code returned by the data plane, or `-1` for transport exceptions and JSON serialization errors.
+- `error`: Response body string for HTTP errors, or the exception message string (`exception.to_s`) for transport and JSON serialization errors.
+- `messages` (`on_error_with_messages` only): Array of message hashes in the failed batch, or `[]` when a message fails JSON serialization before entering a batch.
 
 ## Sending events
 

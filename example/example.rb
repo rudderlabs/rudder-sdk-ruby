@@ -27,7 +27,10 @@ analytics = Rudder::Analytics.new(
 #   :write_key => ENV['WRITE_KEY'],
 #   :data_plane_url => ENV['DATA_PLANE_URL'],
 #   :gzip => true,
-#   :on_error => proc { |error_code, error_body, exception, response|
+#   :on_error => proc { |status, error|
+#     # defaults to an empty proc
+#   },
+#   :on_error_with_messages => proc { |status, error, messages|
 #     # defaults to an empty proc
 #   }
 # )
