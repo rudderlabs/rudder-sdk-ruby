@@ -1,16 +1,15 @@
 # frozen_string_literal: true
 
 require 'forwardable'
-require 'rudder/analytics/logging'
 
 module Rudder
   class Analytics
     # A batch of `Message`s to be sent to the API
     class MessageBatch
       class JSONGenerationError < StandardError; end
+      class MessageTooLargeError < StandardError; end
 
       extend Forwardable
-      include Rudder::Analytics::Logging
       include Rudder::Analytics::Defaults::MessageBatch
 
       attr_reader :messages
@@ -30,12 +29,10 @@ module Rudder
         end
 
         message_json_size = message_json.bytesize
-        if message_too_big?(message_json_size)
-          logger.error('a message exceeded the maximum allowed size')
-        else
-          @messages << message
-          @json_size += message_json_size + 1 # One byte for the comma
-        end
+        raise MessageTooLargeError, 'a message exceeded the maximum allowed size' if message_too_big?(message_json_size)
+
+        @messages << message
+        @json_size += message_json_size + 1 # One byte for the comma
       end
 
       def full?
