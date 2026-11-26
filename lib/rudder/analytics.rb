@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'forwardable'
+
 require 'rudder/analytics/version'
 require 'rudder/analytics/defaults'
 require 'rudder/analytics/utils'
@@ -12,6 +14,13 @@ require 'rudder/analytics/logging'
 
 module Rudder
   class Analytics
+    extend Forwardable
+
+    # The public API of {Rudder::Analytics::Client}, delegated explicitly so that it
+    # remains visible to `respond_to?`, documentation generators and editors.
+    # {#method_missing} below is kept as a fallback for anything not listed here.
+    def_delegators :@client, :flush, :track, :identify, :alias, :group, :page, :screen, :queued_messages, :test_queue
+
     # Initializes a new instance of {Rudder::Analytics::Client}, to which all
     # method calls are proxied.
     #
