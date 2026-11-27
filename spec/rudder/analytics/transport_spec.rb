@@ -146,24 +146,20 @@ module Rudder
           subject.send(write_key, batch)
         end
 
-        # context 'with a stub' do
-        #   before do
-        #     allow(described_class).to receive(:stub) { true }
-        #   end
+        context 'with a stub' do
+          subject do
+            described_class.new(
+              Configuration.new(:write_key => write_key, :data_plane_url => 'http://localhost:8080', :stub => true)
+            )
+          end
 
-        #   it 'returns a 200 response' do
-        #     expect(subject.send(write_key, batch).status).to eq(200)
-        #   end
+          it 'omits the configured write key from debug logs' do
+            expect(subject.send(write_key, batch).status).to eq(200)
 
-        #   it 'has a nil error' do
-        #     expect(subject.send(write_key, batch).error).to be_nil
-        #   end
-
-        #   it 'logs a debug statement' do
-        #     expect(subject.logger).to receive(:debug).with(/stubbed request to/)
-        #     subject.send(write_key, batch)
-        #   end
-        # end
+            expect(subject.logger).to have_received(:debug).with(/stubbed request to/)
+            expect(subject.logger).not_to have_received(:debug).with(include(write_key))
+          end
+        end
 
         context 'a real request' do
           RSpec.shared_examples('retried request') do |status_code, body|
