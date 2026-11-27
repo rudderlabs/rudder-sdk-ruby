@@ -1,5 +1,36 @@
 # Changelog
 
+## [3.2.2](https://github.com/rudderlabs/rudder-sdk-ruby/compare/v3.2.1...v3.2.2) (2026-11-27)
+
+
+### Bug Fixes
+
+* omit credentials from stub request logs ([#66](https://github.com/rudderlabs/rudder-sdk-ruby/issues/66)) ([b34752b](https://github.com/rudderlabs/rudder-sdk-ruby/commit/b34752bc591f4c88b4f9cdbe46c1023d9060e036))
+* patch oj in development and restore ruby 2.0 runtime compatibility ([#29](https://github.com/rudderlabs/rudder-sdk-ruby/issues/29)) ([d426262](https://github.com/rudderlabs/rudder-sdk-ruby/commit/d4262624989f1b52b5554d6e0b0d3e86e7703ec8))
+* report oversized events to error callbacks ([#67](https://github.com/rudderlabs/rudder-sdk-ruby/issues/67)) ([325a0ff](https://github.com/rudderlabs/rudder-sdk-ruby/commit/325a0ff9b47a5fe6922062b2d05a052b040951bb))
+
+
+### Miscellaneous
+
+* apply security-first dependabot policy ([#57](https://github.com/rudderlabs/rudder-sdk-ruby/issues/57)) ([bde2ce6](https://github.com/rudderlabs/rudder-sdk-ruby/commit/bde2ce6aaa96baff1aed2e28fe2328ce91890c8b))
+* **deps-dev:** update rake to the patched 12.3 series ([#32](https://github.com/rudderlabs/rudder-sdk-ruby/issues/32)) ([1898566](https://github.com/rudderlabs/rudder-sdk-ruby/commit/189856631d24c4e60a55ae004e66c0d3d839f8e2))
+* **deps-dev:** update tzinfo requirement to 1.2.11 ([#28](https://github.com/rudderlabs/rudder-sdk-ruby/issues/28)) ([2de8b67](https://github.com/rudderlabs/rudder-sdk-ruby/commit/2de8b671130f85d69c9a287600f1e80145b2a07c))
+* import unit test coverage into sonarcloud ([#63](https://github.com/rudderlabs/rudder-sdk-ruby/issues/63)) ([ecf27f0](https://github.com/rudderlabs/rudder-sdk-ruby/commit/ecf27f0bd8848345560e47eda5cac66e9c94bc98))
+* move the PR title check to check-pr-title v2.0.3 ([#58](https://github.com/rudderlabs/rudder-sdk-ruby/issues/58)) ([06f2278](https://github.com/rudderlabs/rudder-sdk-ruby/commit/06f2278a96123f412903530758a95cef560d5c96))
+* remove notion-pr-sync workflow ([#52](https://github.com/rudderlabs/rudder-sdk-ruby/issues/52)) ([d6520d8](https://github.com/rudderlabs/rudder-sdk-ruby/commit/d6520d8dafe8c06c0cc5ac637a73d7e9e461babd))
+* retain resolved bundler inventory over https ([#60](https://github.com/rudderlabs/rudder-sdk-ruby/issues/60)) ([b25f7cc](https://github.com/rudderlabs/rudder-sdk-ruby/commit/b25f7ccc7ab5a6728a49711ac97ea0413f09babf))
+* run full live e2e on release prs ([#62](https://github.com/rudderlabs/rudder-sdk-ruby/issues/62)) ([fa903a4](https://github.com/rudderlabs/rudder-sdk-ruby/commit/fa903a48895a85cc99b9c4800827e5960887f41e))
+* switch branding images to CDN URLs ([#56](https://github.com/rudderlabs/rudder-sdk-ruby/issues/56)) ([c2f5ad6](https://github.com/rudderlabs/rudder-sdk-ruby/commit/c2f5ad69d088a01a43e893d52b65e21bf23fbb71))
+* update e2e action pin ([#64](https://github.com/rudderlabs/rudder-sdk-ruby/issues/64)) ([3f71ecc](https://github.com/rudderlabs/rudder-sdk-ruby/commit/3f71ecc0442d5e425f943829bb2cdacc3756183e))
+* update readme with new branding images ([#54](https://github.com/rudderlabs/rudder-sdk-ruby/issues/54)) ([10fc469](https://github.com/rudderlabs/rudder-sdk-ruby/commit/10fc469699d042b34f8ae30b3da2eab06a92c5a8))
+* validate the exact published ruby gem ([#59](https://github.com/rudderlabs/rudder-sdk-ruby/issues/59)) ([60eb519](https://github.com/rudderlabs/rudder-sdk-ruby/commit/60eb51922ee667195e0f67ba7e3cbb10d6e83806))
+* verify published e2e with per-run cleanup ([#61](https://github.com/rudderlabs/rudder-sdk-ruby/issues/61)) ([5543e56](https://github.com/rudderlabs/rudder-sdk-ruby/commit/5543e56753276f9c8def3f3f82ff0094a6c2a8b6))
+
+
+### Documentation
+
+* fix on_error arity and document on_error_with_messages ([#65](https://github.com/rudderlabs/rudder-sdk-ruby/issues/65)) ([f776661](https://github.com/rudderlabs/rudder-sdk-ruby/commit/f77666104eac1dbeefe34b959f17beec78a9121e))
+
 ## [3.2.1](https://github.com/rudderlabs/rudder-sdk-ruby/compare/v3.2.0...v3.2.1) (2026-07-22)
 
 

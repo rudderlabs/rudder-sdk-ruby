@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    rudder-sdk-ruby (3.2.1)
+    rudder-sdk-ruby (3.2.2)
 
 GEM
   remote: https://rubygems.org/
