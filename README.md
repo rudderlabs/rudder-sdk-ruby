@@ -99,7 +99,7 @@ analytics = Rudder::Analytics.new(
 
 ## Error handling
 
-You can pass `:on_error` and `:on_error_with_messages` callbacks when initializing the SDK to handle failed batch requests (after retries are exhausted) and JSON serialization errors. Both callbacks default to an empty `proc` and are invoked if configured:
+You can pass `:on_error` and `:on_error_with_messages` callbacks when initializing the SDK. Both callbacks report failed batch requests after retries are exhausted, JSON serialization errors, and events that exceed the 32 KiB limit. Both callbacks default to an empty `proc`:
 
 ```ruby
 analytics = Rudder::Analytics.new(
@@ -116,9 +116,11 @@ analytics = Rudder::Analytics.new(
 
 Callback parameters:
 
-- `status`: Integer HTTP status code returned by the data plane, or `-1` for transport exceptions and JSON serialization errors.
-- `error`: Response body string for HTTP errors, or the exception message string (`exception.to_s`) for transport and JSON serialization errors.
-- `messages` (`on_error_with_messages` only): Array of message hashes in the failed batch, or `[]` when a message fails JSON serialization before entering a batch.
+- `status`: Integer HTTP status code returned by the data plane, or `-1` for transport exceptions, JSON serialization errors, and oversized events.
+- `error`: Response body for HTTP errors, or the error message for a transport, serialization, or size failure.
+- `messages` (`on_error_with_messages` only): Message hashes from the failed batch, an array containing the rejected oversized event, or `[]` for a JSON serialization error before batching.
+
+The SDK does not retry an oversized event. Reduce its size before sending it again.
 
 ## Sending events
 
