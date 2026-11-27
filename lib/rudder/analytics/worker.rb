@@ -44,6 +44,7 @@ module Rudder
           @lock.synchronize do
             consume_message_from_queue! until @batch.full? || @queue.empty?
           end
+          next if @batch.empty?
 
           # res = Request.new(:data_plane_url => @data_plane_url, :ssl => @ssl).post @write_key, @batch
           res = @transport.send @write_key, @batch
@@ -71,7 +72,12 @@ module Rudder
       end
 
       def consume_message_from_queue!
-        @batch << @queue.pop
+        message = @queue.pop
+        @batch << message
+      rescue MessageBatch::MessageTooLargeError => e
+        logger.error(e.message)
+        @on_error.call(-1, e.message)
+        @on_error_with_messages.call(-1, e.message, [message])
       rescue MessageBatch::JSONGenerationError => e
         @on_error.call(-1, e.to_s)
         @on_error_with_messages.call(-1, e.to_s, [])

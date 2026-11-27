@@ -135,6 +135,31 @@ module Rudder
           Rudder::Analytics::Transport.any_instance.unstub(:send)
         end
 
+        it 'reports an oversized message to both error handlers' do
+          message = { :type => 'track', :event => 'x' * Defaults::Message::MAX_BYTES }
+          queue = Queue.new
+          queue << message
+
+          on_error = double('on_error')
+          on_error_with_messages = double('on_error_with_messages')
+          config = Configuration.new({
+            :on_error => on_error,
+            :on_error_with_messages => on_error_with_messages,
+            :write_key => 'write_key',
+            :data_plane_url => 'data_plane_url'
+          })
+          transport = instance_double(Transport, :shutdown => nil)
+          allow(Transport).to receive(:new).with(config).and_return(transport)
+
+          error = 'a message exceeded the maximum allowed size'
+          expect(on_error).to receive(:call).with(-1, error).once
+          expect(on_error_with_messages).to receive(:call).with(-1, error, [message]).once
+          expect(transport).not_to receive(:send)
+
+          described_class.new(queue, config).run
+          expect(queue).to be_empty
+        end
+
         # it 'does not call on_error if the request is good' do
         #   on_error = proc do |status, error|
         #     puts "#{status}, #{error}"

@@ -17,7 +17,7 @@ module Rudder
           max_bytes = Defaults::Message::MAX_BYTES
           message = { 'a' => 'b' * max_bytes }
 
-          subject << message
+          expect { subject << message }.to raise_error(MessageBatch::MessageTooLargeError)
           expect(subject.length).to eq(0)
         end
       end
